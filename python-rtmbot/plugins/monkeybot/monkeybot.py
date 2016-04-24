@@ -1,6 +1,5 @@
 import json
 import pickle
-import argparse
 import sys
 import traceback
 from datetime import datetime
@@ -12,60 +11,27 @@ from slackclient import SlackClient
 from create_modules import create_module_user
 
 
-MONKEYLEARN_TOKEN = ''
-SLACK_TOKEN = ''
-SLACK_BOT_TOKEN = ''
-MESSAGE_DISTANCE = 60
-SUGGESTION_THRESHOLD = 0.8
-DEBUG = True
-MAX_USERS = 10
-
-
-ml = MonkeyLearn(MONKEYLEARN_TOKEN)
-slack = Slacker(SLACK_TOKEN)
-sc = SlackClient(SLACK_BOT_TOKEN)
-
-
-# Get users list
-response = slack.users.list()
-users = response.body['members']
-user_names = {}
-for user in users:
-    user_names[user['id']] = user['name']
-
-
-# Get channel list
-response = slack.channels.list()
-channels = response.body['channels']
-channel_names = {}
-for channel in channels:
-    channel_names[channel['id']] = channel['name']
-
-
 crontable = []
 outputs = []
 
 historical_convs = {}
 current_convs = {}
-users_modules = {}
 
-
-try:
-    f2 = open('user_modules.pickle', 'rb')
-    module_ids = pickle.load(f2)
-    f2.close()
-except:
-    module_ids = {}
-
-if DEBUG:
-    print '\n----- REGISTERED USERS -----'
-    print module_ids.keys()
+# These will be initialized in setup function
+config = {}
+ml = None
+slack = None
+sc = None
+DEBUG = False
+user_names = {}
+channel_names = {}
+module_ids = {}
 
 
 def is_in_conversation(message, conv):
     if len(conv['messages']) == 0:
         return True
-    return (message['ts'] - conv['messages'][-1]['ts']).total_seconds() <= MESSAGE_DISTANCE
+    return (message['ts'] - conv['messages'][-1]['ts']).total_seconds() <= config['MESSAGE_DISTANCE']
 
 
 def create_conversation(start, messages=[], text='', authors=set([])):
@@ -80,8 +46,40 @@ def get_channel_name(channel_id):
     return channel_names[channel_id]
 
 
-def setup():
-    pass
+def setup(plugin_config):
+    print 'Setting up MonkeyBot...'
+    print plugin_config
+
+    config = plugin_config
+    ml = MonkeyLearn(config['MONKEYLEARN_TOKEN'])
+    slack = Slacker(config['SLACK_API_TOKEN'])
+    sc = SlackClient(config['SLACK_BOT_TOKEN'])
+    DEBUG = config['DEBUG']
+
+    # Get users list
+    response = slack.users.list()
+    users = response.body['members']
+    user_names = {}
+    for user in users:
+        user_names[user['id']] = user['name']
+
+    # Get channel list
+    response = slack.channels.list()
+    channels = response.body['channels']
+    channel_names = {}
+    for channel in channels:
+        channel_names[channel['id']] = channel['name']
+
+    try:
+        f2 = open('user_modules.pickle', 'rb')
+        module_ids = pickle.load(f2)
+        f2.close()
+    except:
+        module_ids = {}
+
+    print '\n----- REGISTERED USERS -----'
+    print module_ids.keys()
+
 
 def process_message(data):
 
@@ -92,7 +90,6 @@ def process_message(data):
     try:
 
         if 'subtype' not in data:
-
             if data['channel'].startswith('D'):
                 # direct message
                 # process command here
@@ -114,7 +111,7 @@ def process_message(data):
                             outputs.append([data['channel'], 'You are already registered!'])
                             return
 
-                        if len(module_ids.keys()) >= MAX_USERS:
+                        if len(module_ids.keys()) >= config['MAX_USERS']:
                             outputs.append([data['channel'], 'Sorry, no more room for new users...'])
                             return
 
@@ -237,7 +234,7 @@ def process_message(data):
 
             print res.result[0][0]
 
-            if res.result[0][0]['label'] == 'yes' and res.result[0][0]['probability'] > SUGGESTION_THRESHOLD:
+            if res.result[0][0]['label'] == 'yes' and res.result[0][0]['probability'] > config['SUGGESTION_THRESHOLD']:
                 notifications.append(user)
                 current_conv['alerted'].add(user)
 

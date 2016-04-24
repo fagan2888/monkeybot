@@ -101,7 +101,7 @@ class Plugin(object):
             logging.info("config found for: " + name)
             self.module.config = config[name]
         if 'setup' in dir(self.module):
-            self.module.setup()
+            self.module.setup(config)
 
     def register_jobs(self):
         if 'crontable' in dir(self.module):
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     config = yaml.load(open(args.config or 'rtmbot.conf', 'r'))
     debug = config["DEBUG"]
-    bot = RtmBot(config["SLACK_TOKEN"])
+    bot = RtmBot(config["SLACK_BOT_TOKEN"])
     site_plugins = []
     files_currently_downloading = []
     job_hash = {}

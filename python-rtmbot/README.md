@@ -35,7 +35,7 @@ Installation
         
         cp doc/example-config/rtmbot.conf .
         vi rtmbot.conf
-          SLACK_TOKEN: "xoxb-11111111111-222222222222222"
+          SLACK_BOT_TOKEN: "xoxb-11111111111-222222222222222"
 
 *Note*: At this point rtmbot is ready to run, however no plugins are configured.
 
@@ -71,7 +71,7 @@ Plugins can send messages back to any channel, including direct messages. This i
 
     outputs = []
     outputs.append(["C12345667", "hello world"])
-        
+
 *Note*: you should always create the outputs array at the start of your program, i.e. ```outputs = []```
 
 ####Timed jobs
