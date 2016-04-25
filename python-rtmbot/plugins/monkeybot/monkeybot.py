@@ -50,6 +50,15 @@ def setup(plugin_config):
     print 'Setting up MonkeyBot...'
     print plugin_config
 
+    global config
+    global ml
+    global slack
+    global sc
+    global DEBUG
+    global user_names
+    global channel_names
+    global module_ids
+
     config = plugin_config
     ml = MonkeyLearn(config['MONKEYLEARN_TOKEN'])
     slack = Slacker(config['SLACK_API_TOKEN'])
@@ -59,14 +68,12 @@ def setup(plugin_config):
     # Get users list
     response = slack.users.list()
     users = response.body['members']
-    user_names = {}
     for user in users:
         user_names[user['id']] = user['name']
 
     # Get channel list
     response = slack.channels.list()
     channels = response.body['channels']
-    channel_names = {}
     for channel in channels:
         channel_names[channel['id']] = channel['name']
 
@@ -88,7 +95,6 @@ def process_message(data):
         print data
 
     try:
-
         if 'subtype' not in data:
             if data['channel'].startswith('D'):
                 # direct message
@@ -105,46 +111,47 @@ def process_message(data):
                 args_list = message['text'].split()[1:]
 
                 if command == '\create':
+
+                    if len(args_list) > 0:
+                        user = args_list[0]
+
+                    if user in module_ids.keys():
+                        outputs.append([data['channel'], 'You are already registered!'])
+                        return
+
+                    if len(module_ids.keys()) >= config['MAX_USERS']:
+                        outputs.append([data['channel'], 'Sorry, no more room for new users...'])
+                        return
+
                     try:
+                        f = open('plugins/monkeybot/users_data/training_set_' + user + '.csv')
+                    except:
+                        outputs.append([data['channel'], 'Sorry, no history about ' + user + '...'])
+                        return
 
-                        if user in module_ids.keys():
-                            outputs.append([data['channel'], 'You are already registered!'])
-                            return
+                    sc.api_call(
+                        "chat.postMessage", channel=data['channel'], text="Creating model for " + user + "...",
+                        username='monkeybot', icon_url='https://avatars.slack-edge.com/2016-04-22/36974811941_432c34a832558067e693_48.png'
+                    )
 
-                        if len(module_ids.keys()) >= config['MAX_USERS']:
-                            outputs.append([data['channel'], 'Sorry, no more room for new users...'])
-                            return
-
-                        try:
-                            f = open('plugins/monkeybot/users_data/training_set_' + user + '.csv')
-                        except:
-                            outputs.append([data['channel'], 'Sorry, no history about you...'])
-                            return
-
-                        sc.api_call(
-                            "chat.postMessage", channel=data['channel'], text="Creating your model...",
-                            username='monkeybot', icon_url='https://avatars.slack-edge.com/2016-04-22/36974811941_432c34a832558067e693_48.png'
-                        )
-
-                        try:
-                            module_ids[user] = create_module_user(user, ml, slack, f)
-                            f2 = open('user_modules.pickle', 'wb')
-                            pickle.dump(module_ids, f2)
-                            f2.close()
-                            outputs.append([data['channel'], 'Done! :)'])
-                        except:
-                            outputs.append([data['channel'], 'Hmmm sorry unexpected error :( try again!'])
-
-                    except ArgumentParserError as e:
-                        print e.message
-                    except SystemExit:
-                        print sys.stderr
+                    try:
+                        module_ids[user] = create_module_user(user, ml, slack, f)
+                        f2 = open('user_modules.pickle', 'wb')
+                        pickle.dump(module_ids, f2)
+                        f2.close()
+                        outputs.append([data['channel'], 'Done! :)'])
+                    except:
+                        outputs.append([data['channel'], 'Hmmm sorry unexpected error :( try again!'])
                     return
 
                 elif command == '\delete':
+
+                    if len(args_list) > 0:
+                        user = args_list[0]
+
                     if user in module_ids.keys():
                         sc.api_call(
-                            "chat.postMessage", channel=data['channel'], text="Deleting your model...",
+                            "chat.postMessage", channel=data['channel'], text="Deleting model for " + user + "...",
                             username='monkeybot', icon_url='https://avatars.slack-edge.com/2016-04-22/36974811941_432c34a832558067e693_48.png'
                         )
 
@@ -159,7 +166,7 @@ def process_message(data):
                             outputs.append([data['channel'], 'Hmmm sorry unexpected error :( try again!'])
                         return
                     else:
-                        outputs.append([data['channel'], "It seems that you're not registered..."])
+                        outputs.append([data['channel'], "It seems that " + user + "is not registered..."])
                         return
 
                 outputs.append([data['channel'], "What? I don't understand you dude"])
@@ -213,7 +220,6 @@ def process_message(data):
         else:
             current_conv = create_conversation(message['ts'], [message], message['text'], set([message['user']]))
             current_convs[channel] = current_conv
-
 
         #### SINGLE LABEL BINARY CLASSIFICATION
 

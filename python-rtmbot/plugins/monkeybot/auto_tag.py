@@ -3,7 +3,6 @@ import json
 from random import randint
 
 from slack_parser import parse_log
-
 from create_modules import UnicodeReader, UnicodeWriter
 
 
