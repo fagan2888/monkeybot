@@ -65,8 +65,9 @@ class UnicodeWriter:
 
 
 def create_module_user(user, ml, slack, f):
+
     # Create a new classifier
-    res = ml.classifiers.create('slack_' + user)
+    res = ml.classifiers.create('slack_' + user, ngram_range='1-2')
 
     # Get the id of the new module
     module_id = res.result['classifier']['hashed_id']

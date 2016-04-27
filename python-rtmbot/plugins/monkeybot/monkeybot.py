@@ -92,6 +92,7 @@ def process_message(data):
 
     if DEBUG:
         print '\n----- RAW DATA -----'
+        print datetime.now()
         print data
 
     try:
@@ -186,9 +187,16 @@ def process_message(data):
 
             channel = get_channel_name(data['channel'])
             user = get_user_name(data['message']['user'])
+            if 'text' in data['message']['attachments'][0]:
+                text = data['message']['attachments'][0]['text']
+            elif 'title' in data['message']['attachments'][0]:
+                text = data['message']['attachments'][0]['title']
+            else:
+                return
+
             message = {
                 'ts': datetime.fromtimestamp(float(data['ts'])),
-                'text': data['message']['attachments'][0]['text'],
+                'text': text,
                 'user': user
             }
 
